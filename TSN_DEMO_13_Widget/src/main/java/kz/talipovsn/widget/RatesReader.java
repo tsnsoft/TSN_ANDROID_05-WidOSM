@@ -3,73 +3,75 @@ package kz.talipovsn.widget;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.parser.Parser;
 import org.jsoup.select.Elements;
 
-import java.security.cert.X509Certificate;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-// СОЗДАТЕЛЬ КОТИРОВОК ВАЛЮТ
+// СОЗДАТЕЛЬ КОТИРОВОК ВАЛЮТ ДЛЯ ВИДЖЕТА
 public class RatesReader {
 
-    private static final String BASE_URL = "https://kazfin.info/kazakhstan"; // Адрес с котировками
+    // Стабильный официальный XML-фид Национального Банка РК
+    private static final String BASE_URL = "https://nationalbank.kz/rss/rates_all.xml";
 
-    // Парсинг котировок из формата html web-страницы банка, при ошибке доступа возвращаем null
+    // Парсинг котировок с сервера НБ РК, при ошибке доступа возвращаем "Нет данных"
     public static String getData() {
         StringBuilder data = new StringBuilder();
         try {
-            setTrustAllCertificates(); // Установка доверенных сертификатов
-            Document doc = Jsoup.connect(BASE_URL).timeout(5000).get(); // Создание документа JSOUP из html
-            data.append("Курсы валюты:\n"); // Считываем заголовок страницы
-            data.append(String.format("%12s %12s %12s %12s\n", "валюта", "наименование", "курс", "изменение"));
-            Elements e = doc.select("div.exchange"); // Ищем в документе "<div class="exchange"> с данными о валютах
-            Elements tables = e.select("table"); // Ищем таблицы с котировками
-            Element table = tables.get(0); // Берем 1 таблицу для физических лиц
-            // Цикл по строкам таблицы
-            int i = 0;
-            for (Element row : table.select("tr")) { // Пропускаем 1 строку с заголовком (eq - конкретная , lt - ниже, gt - выше)
-                // Цикл по столбцам таблицы
-                for (Element col : row.select("td")) { //
-                    data.append(String.format("%12s ", col.text())); // Считываем данные с ячейки таблицы
+            // Загружаем документ Jsoup с указанием XML-парсера
+            Document doc = Jsoup.connect(BASE_URL)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .timeout(5000)
+                    .parser(Parser.xmlParser())
+                    .get();
+
+            data.append("Курсы валюты НБ РК:\n");
+            data.append(String.format("%-6s %-10s %-10s %-8s\n", "Валюта", "Имя", "Курс", "Изм."));
+
+            // Ищем все элементы <item> с данными о валютах
+            Elements items = doc.select("item");
+            int count = 0;
+
+            for (Element item : items) {
+                Element titleEl = item.selectFirst("title");
+                Element descEl = item.selectFirst("description");
+                Element changeEl = item.selectFirst("change");
+                Element indexEl = item.selectFirst("index");
+
+                if (titleEl != null && descEl != null) {
+                    String code = titleEl.text().trim();
+
+                    // Для компактного виджета берем только 3 основные валюты (как в исходном цикле i <= 2)
+                    if (code.equals("USD") || code.equals("EUR") || code.equals("RUB")) {
+                        String rate = descEl.text().trim();
+                        String change = (changeEl != null) ? changeEl.text().trim() : "0.0";
+                        String index = (indexEl != null) ? indexEl.text().trim() : "";
+
+                        String name = getShortName(code);
+                        String arrow = "UP".equalsIgnoreCase(index) ? "↑" : ("DOWN".equalsIgnoreCase(index) ? "↓" : "");
+
+                        data.append(String.format("%-6s %-10s %-10s %-8s\n",
+                                code, name, rate, arrow + change));
+                        count++;
+                    }
                 }
-                if (i++ > 2) { // Пропускаем первые 2 строки с заголовками
-                    break;
-                } else {
-                    data.append("\n"); // Добавляем переход на следующую строку;
-                }
+            }
+
+            if (count == 0) {
+                return "Нет данных";
             }
 
         } catch (Exception e) {
             return "Нет данных"; // При ошибке доступа возвращаем "Нет данных"
         }
-        return data.toString(); // Возвращаем результат
+        return data.toString().trim(); // Возвращаем результат
     }
 
-    // Установка доверенных сертификатов для всех сайтов
-    private static void setTrustAllCertificates() {
-        try {
-            // Создаем доверенный сертификатный менеджер, который не проверяет сертификаты
-            TrustManager[] trustAllCertificates = new TrustManager[]{
-                    new X509TrustManager() {
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return null;
-                        }
-                        public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                        }
-                        public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                        }
-                    }
-            };
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, trustAllCertificates, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-        } catch (Exception e) {
-            e.printStackTrace();
+    // Короткие названия валют, чтобы таблица помещалась в узкое окно виджета на рабочем столе
+    private static String getShortName(String code) {
+        switch (code) {
+            case "USD": return "Доллар";
+            case "EUR": return "Евро";
+            case "RUB": return "Рубль";
+            default:    return code;
         }
     }
-
-
 }

@@ -3,41 +3,77 @@ package kz.talipovsn.weather2;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.parser.Parser;
 import org.jsoup.select.Elements;
 
-// КОТИРОВОКИ ВАЛЮТЫ
+// КОТИРОВКИ ВАЛЮТЫ
 public class RatesReader {
 
-    private static final String BASE_URL = "http://kazfin.info/kazakhstan"; // Адрес с котировками
+    // Стабильный официальный адрес с котировками Национального Банка РК (по HTTPS)
+    private static final String BASE_URL = "https://nationalbank.kz/rss/rates_all.xml";
 
-    // Парсинг котировок из формата html web-страницы банка, при ошибке доступа возвращаем null
+    // Парсинг котировок с сервера НБ РК, при ошибке доступа возвращаем null
     public static String getRatesData() {
         StringBuilder data = new StringBuilder();
         try {
-            Document doc = Jsoup.connect(BASE_URL).timeout(5000).get(); // Создание документа JSOUP из html
-            data.append("Курсы валюты:\n"); // Считываем заголовок страницы
+            // Создание документа JSOUP из XML-потока НБ РК
+            Document doc = Jsoup.connect(BASE_URL)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .timeout(5000)
+                    .parser(Parser.xmlParser())
+                    .get();
+
+            data.append("Курсы валюты НБ РК:\n");
             data.append(String.format("%12s %12s %12s %12s\n", "валюта", "наименование", "курс", "изменение"));
-            Elements e = doc.select("div.exchange"); // Ищем в документе "<div class="exchange"> с данными о валютах
-            Elements tables = e.select("table"); // Ищем таблицы с котировками
-            Element table = tables.get(0); // Берем 1 таблицу для физических лиц
-            // Цикл по строкам таблицы
-            int i = 0;
-            for (Element row : table.select("tr")) { // Пропускаем 1 строку с заголовком (eq - конкретная , lt - ниже, gt - выше)
-                // Цикл по столбцам таблицы
-                for (Element col : row.select("td")) { //
-                    data.append(String.format("%12s ", col.text())); // Считываем данные с ячейки таблицы
+            data.append("\n");
+
+            // Ищем все элементы <item> с данными о валютах
+            Elements items = doc.select("item");
+            int count = 0;
+
+            for (Element item : items) {
+                Element titleEl = item.selectFirst("title");
+                Element descEl = item.selectFirst("description");
+                Element changeEl = item.selectFirst("change");
+                Element indexEl = item.selectFirst("index");
+
+                if (titleEl != null && descEl != null) {
+                    String code = titleEl.text().trim();
+
+                    // Берем первые 3 основные валюты (аналогично ограничению i > 2 в исходном коде)
+                    if (code.equals("USD") || code.equals("EUR") || code.equals("RUB")) {
+                        String rate = descEl.text().trim();
+                        String change = (changeEl != null) ? changeEl.text().trim() : "0.0";
+                        String index = (indexEl != null) ? indexEl.text().trim() : "";
+
+                        String name = getCurrencyName(code);
+                        String arrow = "UP".equalsIgnoreCase(index) ? "↑ " : ("DOWN".equalsIgnoreCase(index) ? "↓ " : "");
+
+                        data.append(String.format("%12s %12s %12s %12s\n",
+                                code, name, rate, arrow + change));
+                        count++;
+                    }
                 }
-                if (i++ > 2) {
-                    break;
-                } else {
-                    data.append("\n"); // Добавляем переход на следующую строку;
-                }
+            }
+
+            // Если ни одной валюты не найдено, возвращаем null для срабатывания обработки ошибки в UI
+            if (count == 0) {
+                return null;
             }
 
         } catch (Exception ignored) {
             return null; // При ошибке доступа возвращаем null
         }
-        return data.toString(); // Возвращаем результат
+        return data.toString().trim(); // Возвращаем результат
     }
 
+    // Наименования валют для таблицы
+    private static String getCurrencyName(String code) {
+        switch (code) {
+            case "USD": return "Доллар США";
+            case "EUR": return "Евро";
+            case "RUB": return "Рос. рубль";
+            default:    return code;
+        }
+    }
 }

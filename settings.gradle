@@ -1,1 +1,4 @@
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
 include  'TSN_DEMO_13_Widget',  'TSN_DEMO_16_OpenStreetMap'

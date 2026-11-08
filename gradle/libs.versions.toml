@@ -1,0 +1,31 @@
+[versions]
+appcompat = "1.8.0"
+constraintlayout = "2.2.2"
+googleServices = "4.5.0"
+gradle = "9.5.1"
+gradleToolchainsFoojayResolverConvention = "1.0.0"
+jsoup = "1.24.1"
+legacySupportV4 = "1.0.0"
+material = "1.14.0"
+multidex = "1.0.3"
+navigationFragment = "2.10.2"
+osmdroidAndroid = "6.1.20"
+workRuntimeKtx = "2.12.0"
+
+[libraries]
+appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
+google-services = { group = "com.google.gms", name = "google-services", version.ref = "googleServices" }
+gradle = { group = "com.android.tools.build", name = "gradle", version.ref = "gradle" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+legacy-support-v4 = { module = "androidx.legacy:legacy-support-v4", version.ref = "legacySupportV4" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
+multidex = { module = "com.android.support:multidex", version.ref = "multidex" }
+navigation-fragment = { module = "androidx.navigation:navigation-fragment", version.ref = "navigationFragment" }
+navigation-ui = { module = "androidx.navigation:navigation-ui", version.ref = "navigationFragment" }
+osmdroid-android = { module = "org.osmdroid:osmdroid-android", version.ref = "osmdroidAndroid" }
+work-runtime = { module = "androidx.work:work-runtime", version.ref = "workRuntimeKtx" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
+
+[plugins]
+gradle-toolchains-foojay-resolver-convention = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "gradleToolchainsFoojayResolverConvention" }
